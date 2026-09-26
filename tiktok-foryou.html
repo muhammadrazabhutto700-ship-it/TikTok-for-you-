@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>TikTok For You</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: #000;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* ===== VIDEO FEED ===== */
+    #feed {
+      height: 100vh;
+      width: 100vw;
+      overflow-y: scroll;
+      scroll-snap-type: y mandatory;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .video-card {
+      position: relative;
+      height: 100vh;
+      width: 100vw;
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+      background: #000;
+      overflow: hidden;
+    }
+
+    .video-card video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #111;
+    }
+
+    /* Loading spinner */
+    .spinner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(255,255,255,0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      z-index: 5;
+      display: none;
+    }
+    .video-card.loading .spinner { display: block; }
+
+    @keyframes spin {
+      to { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+
+    /* ===== RIGHT SIDEBAR ===== */
+    .sidebar {
+      position: absolute;
+      right: 12px;
+      bottom: 100px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 22px;
+      z-index: 20;
+    }
+
+    .action-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .action-btn .icon {
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      transition: transform 0.15s ease;
+    }
+
+    .action-btn:active .icon {
+      transform: scale(0.85);
+    }
+
+    .action-btn span {
+      font-size: 12px;
+      font-weight: 600;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    }
+
+    .action-btn.liked .icon {
+      color: #fe2c55;
+      animation: heartPop 0.35s ease;
+    }
+
+    @keyframes heartPop {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.4); }
+      100% { transform: scale(1); }
+    }
+
+    /* Profile pic in sidebar */
+    .profile-pic {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      object-fit: cover;
+      position: relative;
+    }
+
+    .follow-btn {
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 22px;
+      height: 22px;
+      background: #fe2c55;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: bold;
+      color: #fff;
+      border: 2px solid #000;
+    }
+
+    /* Music disc */
+    .music-disc {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #222;
+      border: 8px solid #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: spinDisc 4s linear infinite;
+      position: relative;
+    }
+
+    .music-disc::after {
+      content: "♪";
+      font-size: 18px;
+      color: #fff;
+    }
+
+    @keyframes spinDisc {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ===== BOTTOM LEFT INFO ===== */
+    .info {
+      position: absolute;
+      left: 12px;
+      bottom: 100px;
+      right: 80px;
+      z-index: 15;
+      pointer-events: none;
+    }
+
+    .user-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      pointer-events: auto;
+    }
+
+    .username {
+      font-weight: 700;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .verified {
+      color: #20d5ec;
+      font-size: 14px;
+    }
+
+    .follow-text {
+      background: transparent;
+      border: 1px solid #fff;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 3px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+
+    .follow-text.followed {
+      background: rgba(255,255,255,0.2);
+      border-color: transparent;
+    }
+
+    .caption {
+      font-size: 14px;
+      line-height: 1.4;
+      margin-bottom: 8px;
+      max-width: 100%;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+
+    .caption.expanded {
+      -webkit-line-clamp: unset;
+    }
+
+    .music-title {
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      opacity: 0.95;
+    }
+
+    /* ===== MUTE BUTTON ===== */
+    .mute-btn {
+      position: absolute;
+      bottom: 110px;
+      right: 80px;
+      width: 40px;
+      height: 40px;
+      background: rgba(0,0,0,0.5);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      z-index: 25;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+    }
+
+    /* ===== DOUBLE TAP HEART ===== */
+    .heart-burst {
+      position: absolute;
+      font-size: 90px;
+      color: #fe2c55;
+      pointer-events: none;
+      z-index: 50;
+      opacity: 0;
+      transform: scale(0);
+      animation: burst 0.8s ease forwards;
+    }
+
+    @keyframes burst {
+      0% { opacity: 1; transform: scale(0.3) translateY(0); }
+      50% { opacity: 1; transform: scale(1.2) translateY(-20px); }
+      100% { opacity: 0; transform: scale(1.4) translateY(-60px); }
+    }
+
+    /* ===== BOTTOM NAV ===== */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 56px;
+      background: #000;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      z-index: 100;
+      border-top: 1px solid #222;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      font-size: 11px;
+      color: #888;
+      cursor: pointer;
+      width: 20%;
+    }
+
+    .nav-item.active {
+      color: #fff;
+    }
+
+    .nav-item .nav-icon {
+      font-size: 24px;
+    }
+
+    .create-btn {
+      width: 48px;
+      height: 32px;
+      background: linear-gradient(90deg, #25f4ee, #fe2c55);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      color: #000;
+      font-weight: bold;
+      position: relative;
+    }
+
+    .create-btn::before {
+      content: "";
+      position: absolute;
+      inset: 2px;
+      background: #fff;
+      border-radius: 6px;
+    }
+
+    .create-btn span {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Desktop improvements */
+    @media (min-width: 768px) {
+      .sidebar { right: 24px; }
+      .info { left: 24px; max-width: 400px; }
+      .mute-btn { right: 100px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="feed">
+    <!-- Videos will be injected by JS -->
+  </div>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <div class="nav-item active">
+      <div class="nav-icon">🏠</div>
+      <span>Home</span>
+    </div>
+    <div class="nav-item">
+      <div class="nav-icon">👥</div>
+      <span>Friends</span>
+    </div>
+    <div class="nav-item">
+      <div class="create-btn"><span>+</span></div>
+    </div>
+    <div class="nav-item">
+      <div class="nav-icon">💬</div>
+      <span>Inbox</span>
+    </div>
+    <div class="nav-item">
+      <div class="nav-icon">👤</div>
+      <span>Profile</span>
+    </div>
+  </nav>
+
+  <script>
+    // ========== SAMPLE DATA ==========
+    const videos = [
+      {
+        src: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+        username: "naturelover",
+        verified: true,
+        caption: "Beautiful flower blooming in slow motion 🌸 Nature is pure magic #nature #flowers #viral",
+        likes: "1.2M",
+        comments: "8.4K",
+        shares: "32K",
+        music: "Original Sound - naturelover",
+        profile: "https://i.pravatar.cc/150?img=1"
+      },
+      {
+        src: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+        username: "adventure_time",
+        verified: false,
+        caption: "Epic moments that make life worth living 🔥 Who's ready for the next trip?",
+        likes: "890K",
+        comments: "12K",
+        shares: "45K",
+        music: "Blaze - Epic Beats",
+        profile: "https://i.pravatar.cc/150?img=5"
+      },
+      {
+        src: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+        username: "travelwithme",
+        verified: true,
+        caption: "Escape the ordinary. Explore the extraordinary ✈️🌍 #travel #wanderlust",
+        likes: "2.1M",
+        comments: "45K",
+        shares: "98K",
+        music: "Escape Route - Chill Vibes",
+        profile: "https://i.pravatar.cc/150?img=12"
+      },
+      {
+        src: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+        username: "funzone",
+        verified: false,
+        caption: "Just pure fun and chaos 😂 Tag your bestie who needs this energy!",
+        likes: "3.4M",
+        comments: "67K",
+        shares: "210K",
+        music: "Party Anthem 2024",
+        profile: "https://i.pravatar.cc/150?img=20"
+      },
+      {
+        src: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+        username: "speedster",
+        verified: true,
+        caption: "Joyride through the city at night 🌃 Feel the adrenaline!",
+        likes: "1.8M",
+        comments: "29K",
+        shares: "76K",
+        music: "Night Drive - Synthwave",
+        profile: "https://i.pravatar.cc/150?img=33"
+      },
+      {
+        src: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4",
+        username: "comedyking",
+        verified: false,
+        caption: "When the plan completely melts down 🫠 Relatable content only",
+        likes: "5.6M",
+        comments: "120K",
+        shares: "340K",
+        music: "Fail Compilation Sound",
+        profile: "https://i.pravatar.cc/150?img=45"
+      },
+      {
+        src: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
+        username: "cinemafan",
+        verified: true,
+        caption: "Short film masterpiece 🎬 Storytelling at its finest #cinema #art",
+        likes: "980K",
+        comments: "15K",
+        shares: "42K",
+        music: "Sintel Theme - Orchestra",
+        profile: "https://i.pravatar.cc/150?img=51"
+      },
+      {
+        src: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
+        username: "scifiworld",
+        verified: true,
+        caption: "Tears of Steel 🤖 Future is closer than we think. What do you think?",
+        likes: "1.5M",
+        comments: "38K",
+        shares: "89K",
+        music: "Steel Tears - Dark Synth",
+        profile: "https://i.pravatar.cc/150?img=60"
+      }
+    ];
+
+    // ========== RENDER VIDEOS ==========
+    const feed = document.getElementById("feed");
+
+    videos.forEach((v, index) => {
+      const card = document.createElement("div");
+      card.className = "video-card loading";
+      card.dataset.index = index;
+
+      card.innerHTML = `
+        <div class="spinner"></div>
+        <video 
+          playsinline 
+          loop 
+          muted 
+          preload="metadata"
+          src="${v.src}"
+        ></video>
+
+        <div class="mute-btn" title="Unmute">🔇</div>
+
+        <div class="sidebar">
+          <div class="action-btn profile-action">
+            <img class="profile-pic" src="${v.profile}" alt="profile" />
+            <div class="follow-btn">+</div>
+          </div>
+
+          <div class="action-btn like-btn">
+            <div class="icon">♡</div>
+            <span class="like-count">${v.likes}</span>
+          </div>
+
+          <div class="action-btn">
+            <div class="icon">💬</div>
+            <span>${v.comments}</span>
+          </div>
+
+          <div class="action-btn">
+            <div class="icon">➤</div>
+            <span>${v.shares}</span>
+          </div>
+
+          <div class="action-btn bookmark-btn">
+            <div class="icon">🔖</div>
+            <span>Save</span>
+          </div>
+
+          <div class="music-disc"></div>
+        </div>
+
+        <div class="info">
+          <div class="user-row">
+            <span class="username">
+              @${v.username}
+              ${v.verified ? '<span class="verified">✓</span>' : ''}
+            </span>
+            <button class="follow-text">Follow</button>
+          </div>
+          <div class="caption">${v.caption}</div>
+          <div class="music-title">🎵 ${v.music}</div>
+        </div>
+      `;
+
+      feed.appendChild(card);
+    });
+
+    // ========== INTERSECTION OBSERVER (Autoplay) ==========
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        const video = entry.target.querySelector("video");
+        const card = entry.target;
+
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.7) {
+          // Play this video
+          video.play().catch(() => {});
+          card.classList.remove("loading");
+        } else {
+          video.pause();
+        }
+      });
+    }, {
+      threshold: [0.7]
+    });
+
+    document.querySelectorAll(".video-card").forEach(card => {
+      observer.observe(card);
+
+      const video = card.querySelector("video");
+      video.addEventListener("loadeddata", () => {
+        card.classList.remove("loading");
+      });
+      video.addEventListener("waiting", () => {
+        card.classList.add("loading");
+      });
+      video.addEventListener("playing", () => {
+        card.classList.remove("loading");
+      });
+    });
+
+    // ========== MUTE / UNMUTE ==========
+    document.querySelectorAll(".mute-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const video = btn.closest(".video-card").querySelector("video");
+        video.muted = !video.muted;
+        btn.textContent = video.muted ? "🔇" : "🔊";
+      });
+    });
+
+    // ========== LIKE BUTTON ==========
+    document.querySelectorAll(".like-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        btn.classList.toggle("liked");
+        const icon = btn.querySelector(".icon");
+        icon.textContent = btn.classList.contains("liked") ? "❤️" : "♡";
+      });
+    });
+
+    // ========== BOOKMARK ==========
+    document.querySelectorAll(".bookmark-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const icon = btn.querySelector(".icon");
+        if (icon.textContent === "🔖") {
+          icon.textContent = "📑";
+          btn.querySelector("span").textContent = "Saved";
+        } else {
+          icon.textContent = "🔖";
+          btn.querySelector("span").textContent = "Save";
+        }
+      });
+    });
+
+    // ========== FOLLOW BUTTON ==========
+    document.querySelectorAll(".follow-text").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        btn.classList.toggle("followed");
+        btn.textContent = btn.classList.contains("followed") ? "Following" : "Follow";
+      });
+    });
+
+    // ========== CAPTION EXPAND ==========
+    document.querySelectorAll(".caption").forEach(cap => {
+      cap.addEventListener("click", (e) => {
+        e.stopPropagation();
+        cap.classList.toggle("expanded");
+      });
+    });
+
+    // ========== SINGLE TAP = PLAY/PAUSE | DOUBLE TAP = LIKE ==========
+    let lastTap = 0;
+
+    document.querySelectorAll(".video-card").forEach(card => {
+      card.addEventListener("click", (e) => {
+        // Ignore clicks on interactive elements
+        if (e.target.closest(".sidebar") || 
+            e.target.closest(".mute-btn") || 
+            e.target.closest(".follow-text") ||
+            e.target.closest(".caption")) {
+          return;
+        }
+
+        const now = Date.now();
+        const video = card.querySelector("video");
+
+        if (now - lastTap < 300) {
+          // Double tap → Like + Heart animation
+          const likeBtn = card.querySelector(".like-btn");
+          if (!likeBtn.classList.contains("liked")) {
+            likeBtn.classList.add("liked");
+            likeBtn.querySelector(".icon").textContent = "❤️";
+          }
+
+          // Create heart burst
+          const heart = document.createElement("div");
+          heart.className = "heart-burst";
+          heart.textContent = "❤️";
+          heart.style.left = e.clientX - 45 + "px";
+          heart.style.top = e.clientY - 45 + "px";
+          card.appendChild(heart);
+
+          setTimeout(() => heart.remove(), 800);
+        } else {
+          // Single tap → Play / Pause
+          if (video.paused) {
+            video.play().catch(() => {});
+          } else {
+            video.pause();
+          }
+        }
+        lastTap = now;
+      });
+    });
+
+    // ========== BOTTOM NAV ACTIVE STATE ==========
+    document.querySelectorAll(".nav-item").forEach(item => {
+      item.addEventListener("click", () => {
+        document.querySelectorAll(".nav-item").forEach(i => i.classList.remove("active"));
+        if (!item.querySelector(".create-btn")) {
+          item.classList.add("active");
+        }
+      });
+    });
+
+    // Prevent default scroll bounce on iOS
+    document.body.addEventListener("touchmove", (e) => {
+      if (e.target.closest("#feed") === null) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+  </script>
+</body>
+</html>
